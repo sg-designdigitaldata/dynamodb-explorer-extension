@@ -1,0 +1,50 @@
+name: Build and Release VSIX
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build-vsix:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Install dependencies
+        run: |
+          cd dynamodb-explorer
+          npm ci
+
+      - name: Lint
+        run: |
+          cd dynamodb-explorer
+          npx eslint .
+
+      - name: Build extension
+        run: |
+          cd dynamodb-explorer
+          npm run compile
+
+      - name: Package VSIX
+        run: |
+          cd dynamodb-explorer
+          npx vsce package --skip-license
+
+      - name: Get VSIX filename
+        id: get_vsix
+        run: |
+          cd dynamodb-explorer
+          echo "VSIX_FILE=$(ls *.vsix | head -n 1)" >> $GITHUB_OUTPUT
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dynamodb-explorer/${{ steps.get_vsix.outputs.VSIX_FILE }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
