@@ -1,0 +1,113 @@
+{
+  "name": "dynamodb-explorer",
+  "displayName": "DynamoDB Local Explorer",
+  "description": "An extension to manage a local DynamoDB instance.",
+  "version": "0.0.1",
+  "engines": {
+    "vscode": "^1.80.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "activationEvents": [
+    "onView:dynamoDbExplorer"
+  ],
+  "main": "./out/extension.js",
+  "contributes": {
+    "configuration": {
+      "type": "object",
+      "title": "DynamoDB Explorer",
+      "properties": {
+        "dynamodbExplorer.endpoint": {
+          "type": "string",
+          "default": "http://localhost:8000",
+          "description": "The endpoint URL for the DynamoDB service (e.g., http://localhost:8000 for local DynamoDB). Leave blank to use AWS default."
+        }
+      }
+    },
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "dynamoDbExplorer",
+          "title": "DynamoDB",
+          "icon": "./resources/dynamo.svg"
+        }
+      ]
+    },
+    "views": {
+      "dynamoDbExplorer": [
+        {
+          "id": "dynamoDbExplorerTables",
+          "name": "Tables"
+        }
+      ]
+    },
+    "commands": [
+      {
+        "command": "dynamodb-explorer.refreshTables",
+        "title": "Refresh"
+      },
+      {
+        "command": "dynamodb-explorer.createTable",
+        "title": "Create Table"
+      },
+      {
+        "command": "dynamodb-explorer.deleteTable",
+        "title": "Delete Table"
+      },
+      {
+        "command": "dynamodb-explorer.viewTableContents",
+        "title": "View Contents"
+      },
+      {
+        "command": "dynamodb-explorer.addItem",
+        "title": "Add Item"
+      }
+    ],
+    "menus": {
+      "view/title": [
+        {
+          "command": "dynamodb-explorer.createTable",
+          "group": "navigation"
+        },
+        {
+          "command": "dynamodb-explorer.refreshTables",
+          "group": "navigation"
+        }
+      ],
+      "view/item/context": [
+        {
+          "command": "dynamodb-explorer.deleteTable",
+          "when": "view == dynamoDbExplorerTables",
+          "group": "inline"
+        },
+        {
+          "command": "dynamodb-explorer.viewTableContents",
+          "when": "view == dynamoDbExplorerTables",
+          "group": "inline"
+        },
+        {
+          "command": "dynamodb-explorer.addItem",
+          "when": "view == dynamoDbExplorerTables",
+          "group": "inline"
+        }
+      ]
+    }
+  },
+  "devDependencies": {
+    "@types/jest": "^30.0.0",
+    "@types/node": "^20.0.0",
+    "@types/vscode": "^1.80.0",
+    "typescript": "^5.1.6"
+  },
+  "dependencies": {
+    "@aws-sdk/client-dynamodb": "^3.864.0",
+    "@aws-sdk/lib-dynamodb": "^3.864.0",
+    "@aws-sdk/node-http-handler": "^3.370.0"
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./"
+  }
+}

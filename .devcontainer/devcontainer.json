@@ -1,0 +1,25 @@
+{
+    "dockerComposeFile": "docker-compose.yml",
+    "service": "app",
+	"features": {
+        "ghcr.io/devcontainers/features/aws-cli:1": {},
+        "ghcr.io/devcontainers/features/docker-outside-of-docker:1": {}
+	},
+
+	"hostRequirements": {
+		"cpus": 4,
+		"memory": "16gb",
+		"storage": "32gb"
+	},
+	"customizations": {
+		"vscode": {
+			"extensions": [
+                "ms-azuretools.vscode-containers"
+            ]
+		}
+	},
+
+	"forwardPorts": [7000, 4200],
+
+	"remoteUser": "root"
+}
