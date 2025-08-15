@@ -4,29 +4,17 @@
 	"version": "2.0.0",
 	"tasks": [
 		{
+			"label": "bundle",
 			"type": "npm",
-			"script": "watch",
-			"problemMatcher": "$tsc-watch",
-			"isBackground": true,
-			"presentation": {
-				"reveal": "never"
-			},
+			"script": "bundle",
 			"group": {
 				"kind": "build",
 				"isDefault": true
 			},
+			"problemMatcher": [],
 			"options": {
 				"cwd": "${workspaceFolder}/dynamodb-explorer"
 			}
-		},
-		{
-			"type": "npm",
-			"script": "watch",
-			"path": "dynamodb-explorer",
-			"group": "build",
-			"problemMatcher": [],
-			"label": "npm: watch - dynamodb-explorer",
-			"detail": "tsc -watch -p ./"
 		}
 	]
 }

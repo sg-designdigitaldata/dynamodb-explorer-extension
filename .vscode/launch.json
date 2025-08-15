@@ -4,18 +4,30 @@
 // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
 {
 	"version": "0.2.0",
-	"configurations": [
-		{
-			"name": "Run Extension",
-			"type": "extensionHost",
-			"request": "launch",
-			"args": [
-				"--extensionDevelopmentPath=${workspaceFolder}/dynamodb-explorer"
-			],
-			"outFiles": [
-				"${workspaceFolder}/dynamodb-explorer/out/**/*.js"
-			],
-			"preLaunchTask": "${defaultBuildTask}"
-		}
-	]
+		"configurations": [
+			{
+				"name": "Run Extension (Bundled)",
+				"type": "extensionHost",
+				"request": "launch",
+				"args": [
+					"--extensionDevelopmentPath=${workspaceFolder}/dynamodb-explorer"
+				],
+				"outFiles": [
+					"${workspaceFolder}/dynamodb-explorer/dist/**/*.js"
+				],
+				"preLaunchTask": "bundle"
+			},
+			{
+				"name": "Run Extension (Unbundled)",
+				"type": "extensionHost",
+				"request": "launch",
+				"args": [
+					"--extensionDevelopmentPath=${workspaceFolder}/dynamodb-explorer"
+				],
+				"outFiles": [
+					"${workspaceFolder}/dynamodb-explorer/out/**/*.js"
+				],
+				"preLaunchTask": "compile"
+			}
+		]
 }
