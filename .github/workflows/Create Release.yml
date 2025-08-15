@@ -37,7 +37,8 @@ jobs:
         run: |
           cd dynamodb-explorer
           echo "VSIX_FILE=$(ls *.vsix | head -n 1)" >> $GITHUB_OUTPUT
-          echo "TAG_NAME=release-$(date +'%Y%m%d')-${GITHUB_RUN_NUMBER}" >> $GITHUB_OUTPUT
+          VERSION=$(jq -r .version package.json)
+          echo "TAG_NAME=v$VERSION-$(date +'%Y%m%d')" >> $GITHUB_OUTPUT
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
