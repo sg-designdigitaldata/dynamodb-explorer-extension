@@ -36,6 +36,7 @@ jobs:
       - name: Get VSIX filename
         id: get_vsix
         run: |
+          echo GitHub ref is ${{ github.ref_name }}
           cd dynamodb-explorer
           echo "VSIX_FILE=$(ls *.vsix | head -n 1)" >> $GITHUB_OUTPUT
 
@@ -43,5 +44,6 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           files: dynamodb-explorer/${{ steps.get_vsix.outputs.VSIX_FILE }}
+          tag_name: ${{ github.ref_name || "workingonceonly" }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
