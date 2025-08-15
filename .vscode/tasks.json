@@ -15,6 +15,24 @@
 			"options": {
 				"cwd": "${workspaceFolder}/dynamodb-explorer"
 			}
+		},
+		{
+			"type": "npm",
+			"script": "compile",
+			"path": "dynamodb-explorer",
+			"group": "build",
+			"problemMatcher": [],
+			"label": "npm: compile - dynamodb-explorer",
+			"detail": "tsc -p ./"
+		},
+		{
+			"type": "npm",
+			"script": "compile",
+			"label": "compile",
+			"options": {
+				"cwd": "${workspaceFolder}/dynamodb-explorer"
+			},
+			"problemMatcher": []
 		}
 	]
 }
