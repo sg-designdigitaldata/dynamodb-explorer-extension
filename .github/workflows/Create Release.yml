@@ -30,7 +30,8 @@ jobs:
       - name: Package VSIX
         run: |
           cd dynamodb-explorer
-          npx vsce package --skip-license
+          npm install -g @vscode/vsce 
+          vsce package --skip-license
 
       - name: Get VSIX filename
         id: get_vsix
