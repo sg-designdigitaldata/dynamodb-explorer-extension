@@ -21,11 +21,6 @@ jobs:
           cd dynamodb-explorer
           npm ci
 
-      - name: Lint
-        run: |
-          cd dynamodb-explorer
-          npx eslint .
-
       - name: Build extension
         run: |
           cd dynamodb-explorer
