@@ -22,10 +22,10 @@ jobs:
           cd dynamodb-explorer
           npm ci
 
-      - name: Build extension
+      - name: Bundle extension
         run: |
           cd dynamodb-explorer
-          npm run compile
+          npm run bundle
 
       - name: Package VSIX
         run: |
@@ -33,17 +33,17 @@ jobs:
           npm install -g @vscode/vsce 
           vsce package --skip-license
 
-      - name: Get VSIX filename
+      - name: Get VSIX filename and tag
         id: get_vsix
         run: |
-          echo GitHub ref is ${{ github.ref_name }}
           cd dynamodb-explorer
           echo "VSIX_FILE=$(ls *.vsix | head -n 1)" >> $GITHUB_OUTPUT
+          echo "TAG_NAME=release-$(date +'%Y%m%d')-${GITHUB_RUN_NUMBER}" >> $GITHUB_OUTPUT
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
           files: dynamodb-explorer/${{ steps.get_vsix.outputs.VSIX_FILE }}
-          tag_name: ${{ github.ref_name || 'workingonceonly' }}
+          tag_name: ${{ steps.get_vsix.outputs.TAG_NAME }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
