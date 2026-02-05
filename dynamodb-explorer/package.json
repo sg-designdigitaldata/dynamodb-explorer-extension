@@ -22,8 +22,8 @@
       "properties": {
         "dynamodbExplorer.endpoint": {
           "type": "string",
-          "default": "http://localhost:8000",
-          "description": "The endpoint URL for the DynamoDB service (e.g., http://localhost:8000 for local DynamoDB). Leave blank to use AWS default."
+          "default": "http://localstack:4566",
+          "description": "The endpoint URL for the DynamoDB service (e.g., http://localstack:4566 for LocalStack or http://localhost:8000 for local DynamoDB). Leave blank to use AWS default."
         }
       }
     },
