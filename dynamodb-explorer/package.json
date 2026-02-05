@@ -1,7 +1,9 @@
 {
   "name": "dynamodb-explorer",
+  "publisher": "sg-digitalservices",
   "displayName": "DynamoDB Local Explorer",
   "description": "An extension to manage a local DynamoDB instance.",
+  "icon": "resources/dynamo.png",
   "version": "0.0.1",
   "engines": {
     "vscode": "^1.80.0"
