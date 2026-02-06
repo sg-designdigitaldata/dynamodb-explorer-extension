@@ -4,7 +4,7 @@
   "displayName": "DynamoDB Local Explorer",
   "description": "An extension to manage a local DynamoDB instance.",
   "icon": "resources/dynamo.png",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "engines": {
     "vscode": "^1.80.0"
   },
@@ -70,13 +70,15 @@
       "view/title": [
         {
           "command": "dynamodb-explorer.createTable",
-          "group": "navigation"
+          "group": "navigation",
+          "when": "view == dynamoDbExplorerTables"
         },
         {
           "command": "dynamodb-explorer.refreshTables",
-          "group": "navigation"
+          "group": "navigation",
+          "when": "view == dynamoDbExplorerTables"
         }
-      ],
+      ],      
       "view/item/context": [
         {
           "command": "dynamodb-explorer.deleteTable",
