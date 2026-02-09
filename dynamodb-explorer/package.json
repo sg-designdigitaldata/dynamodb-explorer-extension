@@ -1,8 +1,10 @@
 {
   "name": "dynamodb-explorer",
+  "publisher": "sg-digitalservices",
   "displayName": "DynamoDB Local Explorer",
   "description": "An extension to manage a local DynamoDB instance.",
-  "version": "0.0.1",
+  "icon": "resources/dynamo.png",
+  "version": "0.0.2",
   "engines": {
     "vscode": "^1.80.0"
   },
@@ -20,8 +22,8 @@
       "properties": {
         "dynamodbExplorer.endpoint": {
           "type": "string",
-          "default": "http://localhost:8000",
-          "description": "The endpoint URL for the DynamoDB service (e.g., http://localhost:8000 for local DynamoDB). Leave blank to use AWS default."
+          "default": "http://localstack:4566",
+          "description": "The endpoint URL for the DynamoDB service (e.g., http://localstack:4566 for LocalStack or http://localhost:8000 for local DynamoDB). Leave blank to use AWS default."
         }
       }
     },
@@ -68,13 +70,15 @@
       "view/title": [
         {
           "command": "dynamodb-explorer.createTable",
-          "group": "navigation"
+          "group": "navigation",
+          "when": "view == dynamoDbExplorerTables"
         },
         {
           "command": "dynamodb-explorer.refreshTables",
-          "group": "navigation"
+          "group": "navigation",
+          "when": "view == dynamoDbExplorerTables"
         }
-      ],
+      ],      
       "view/item/context": [
         {
           "command": "dynamodb-explorer.deleteTable",

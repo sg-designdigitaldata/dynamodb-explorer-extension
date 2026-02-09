@@ -1,9 +1,12 @@
 {
     "dockerComposeFile": "docker-compose.yml",
     "service": "app",
+	"workspaceFolder": "/workspaces/dynamoDB-explorer",
 	"features": {
         "ghcr.io/devcontainers/features/aws-cli:1": {},
-        "ghcr.io/devcontainers/features/docker-outside-of-docker:1": {}
+        "ghcr.io/devcontainers/features/docker-outside-of-docker:1": {
+			"moby": false
+		}
 	},
 
 	"hostRequirements": {
@@ -11,10 +14,17 @@
 		"memory": "16gb",
 		"storage": "32gb"
 	},
+
+	// Set Docker API version to 1.43 to match daemon as client version 1.52 is too new
+	"remoteEnv": {
+		"DOCKER_API_VERSION": "1.43"
+	},
+	
 	"customizations": {
 		"vscode": {
 			"extensions": [
-                "ms-azuretools.vscode-containers"
+                "ms-azuretools.vscode-containers",
+				"sg-digitalservices.dynamodb-explorer"
             ]
 		}
 	},
