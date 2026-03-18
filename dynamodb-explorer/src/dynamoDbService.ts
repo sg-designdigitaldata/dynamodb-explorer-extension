@@ -15,7 +15,7 @@ export class DynamoDbService {
         const config = vscode.workspace.getConfiguration();
         const endpoint = config.get<string>('dynamodbExplorer.endpoint', 'http://localstack:4566');
         const clientOptions: any = {
-            region: 'us-east-1',
+            region: 'eu-west-2',
             credentials: {
                 accessKeyId: 'dummy',
                 secretAccessKey: 'dummy',
