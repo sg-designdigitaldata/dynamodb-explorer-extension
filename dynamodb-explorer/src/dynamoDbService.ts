@@ -1,21 +1,26 @@
 // This service abstracts all the AWS SDK calls to DynamoDB using v3.
 // You'll need to run `npm install @aws-sdk/client-dynamodb @aws-sdk/lib-dynamodb` to get these dependencies.
-import { DynamoDBClient, ListTablesCommand, CreateTableCommand, DeleteTableCommand, CreateTableInput, KeySchemaElement, DeleteItemCommandInput, DeleteItemCommand } from "@aws-sdk/client-dynamodb";
+import { DynamoDBClient, ListTablesCommand, CreateTableCommand, DeleteTableCommand, CreateTableInput, KeySchemaElement, ScalarAttributeType, DeleteItemCommandInput, DeleteItemCommand } from "@aws-sdk/client-dynamodb";
 import * as vscode from 'vscode';
 import { DeleteCommand, DeleteCommandInput, DynamoDBDocumentClient, PutCommand, PutCommandInput, ScanCommand, ScanCommandInput, ScanCommandOutput } from "@aws-sdk/lib-dynamodb";
 import { NodeHttpHandler } from '@aws-sdk/node-http-handler';
 
 
 export class DynamoDbService {
-    private client: DynamoDBClient;
-    private docClient: DynamoDBDocumentClient;
+    private client!: DynamoDBClient;
+    private docClient!: DynamoDBDocumentClient;
 
     constructor() {
-        // Read endpoint from VS Code settings
+        this.refreshClient();
+    }
+
+    public refreshClient(): void {
         const config = vscode.workspace.getConfiguration();
         const endpoint = config.get<string>('dynamodbExplorer.endpoint', 'http://localstack:4566');
+        const region = config.get<string>('dynamodbExplorer.region', 'eu-west-2') || 'eu-west-2';
+
         const clientOptions: any = {
-            region: 'eu-west-2',
+            region,
             credentials: {
                 accessKeyId: 'dummy',
                 secretAccessKey: 'dummy',
@@ -28,6 +33,7 @@ export class DynamoDbService {
         if (endpoint && endpoint.trim() !== '') {
             clientOptions.endpoint = endpoint;
         }
+
         this.client = new DynamoDBClient(clientOptions);
         this.docClient = DynamoDBDocumentClient.from(this.client);
     }
@@ -53,13 +59,18 @@ export class DynamoDbService {
      * @param keySchema The key schema for the table.
      */
     async createTable(tableName: string, keySchema: KeySchemaElement[]): Promise<void> {
+        if (!keySchema || keySchema.length === 0) {
+            throw new Error('Key schema is required to create a table.');
+        }
+
+        const uniqueAttributeNames = Array.from(new Set(keySchema.map(k => k.AttributeName))).filter(Boolean) as string[];
+        const attributeDefinitions = uniqueAttributeNames.map(name => ({ AttributeName: name, AttributeType: 'S' as ScalarAttributeType }));
+
         try {
             const params: CreateTableInput = {
                 TableName: tableName,
                 KeySchema: keySchema,
-                AttributeDefinitions: [
-                    { AttributeName: keySchema[0].AttributeName!, AttributeType: 'S' }
-                ],
+                AttributeDefinitions: attributeDefinitions,
                 ProvisionedThroughput: {
                     ReadCapacityUnits: 5,
                     WriteCapacityUnits: 5,

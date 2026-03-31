@@ -44,11 +44,14 @@ class DynamoDbService {
     client;
     docClient;
     constructor() {
-        // Read endpoint from VS Code settings
+        this.refreshClient();
+    }
+    refreshClient() {
         const config = vscode.workspace.getConfiguration();
         const endpoint = config.get('dynamodbExplorer.endpoint', 'http://localstack:4566');
+        const region = config.get('dynamodbExplorer.region', 'eu-west-2') || 'eu-west-2';
         const clientOptions = {
-            region: 'us-east-1',
+            region,
             credentials: {
                 accessKeyId: 'dummy',
                 secretAccessKey: 'dummy',
@@ -85,13 +88,16 @@ class DynamoDbService {
      * @param keySchema The key schema for the table.
      */
     async createTable(tableName, keySchema) {
+        if (!keySchema || keySchema.length === 0) {
+            throw new Error('Key schema is required to create a table.');
+        }
+        const uniqueAttributeNames = Array.from(new Set(keySchema.map(k => k.AttributeName))).filter(Boolean);
+        const attributeDefinitions = uniqueAttributeNames.map(name => ({ AttributeName: name, AttributeType: 'S' }));
         try {
             const params = {
                 TableName: tableName,
                 KeySchema: keySchema,
-                AttributeDefinitions: [
-                    { AttributeName: keySchema[0].AttributeName, AttributeType: 'S' }
-                ],
+                AttributeDefinitions: attributeDefinitions,
                 ProvisionedThroughput: {
                     ReadCapacityUnits: 5,
                     WriteCapacityUnits: 5,

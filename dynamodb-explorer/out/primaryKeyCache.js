@@ -3,7 +3,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.PrimaryKeyCache = void 0;
 const client_dynamodb_1 = require("@aws-sdk/client-dynamodb");
 /**
- * A singleton cache for table primary key names.
+ * A singleton cache for table primary key schema.
  */
 class PrimaryKeyCache {
     static instance;
@@ -18,8 +18,8 @@ class PrimaryKeyCache {
     get(tableName) {
         return this.cache.get(tableName);
     }
-    set(tableName, keyName) {
-        this.cache.set(tableName, keyName);
+    set(tableName, keySchema) {
+        this.cache.set(tableName, keySchema);
     }
     async populate(client, tableNames) {
         for (const tableName of tableNames) {
@@ -27,7 +27,11 @@ class PrimaryKeyCache {
                 const desc = await client.send(new client_dynamodb_1.DescribeTableCommand({ TableName: tableName }));
                 const keySchema = desc.Table?.KeySchema;
                 if (keySchema && keySchema.length > 0) {
-                    this.cache.set(tableName, keySchema[0].AttributeName);
+                    const partitionKey = keySchema.find(k => k.KeyType === 'HASH')?.AttributeName;
+                    const sortKey = keySchema.find(k => k.KeyType === 'RANGE')?.AttributeName;
+                    if (partitionKey) {
+                        this.cache.set(tableName, { partitionKey, sortKey });
+                    }
                 }
             }
             catch (e) {

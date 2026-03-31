@@ -57,14 +57,20 @@ function activate(context) {
     console.log('Congratulations, your extension "dynamodb-explorer" is now active!');
     // Register the Tree View for the sidebar.
     vscode.window.registerTreeDataProvider('dynamoDbExplorerTables', dynamoDbTreeProvider);
-    // Listen for changes to the endpoint setting and prompt for reload
-    context.subscriptions.push(vscode.workspace.onDidChangeConfiguration(e => {
-        if (e.affectsConfiguration('dynamodbExplorer.endpoint')) {
-            vscode.window.showInformationMessage('DynamoDB endpoint setting changed. Reload window to apply changes?', 'Reload').then(selection => {
-                if (selection === 'Reload') {
-                    vscode.commands.executeCommand('workbench.action.reloadWindow');
-                }
-            });
+    // Listen for changes to endpoint or region setting and apply without requiring window reload.
+    context.subscriptions.push(vscode.workspace.onDidChangeConfiguration(async (e) => {
+        if (e.affectsConfiguration('dynamodbExplorer.endpoint') || e.affectsConfiguration('dynamodbExplorer.region')) {
+            try {
+                dynamoDbService.refreshClient();
+                // Re-populate primary key cache based on tables in the new client config
+                const tableNames = await dynamoDbService.listTables();
+                await primaryKeyCache.populate(dynamoDbService['client'], tableNames);
+                dynamoDbTreeProvider.refresh();
+                vscode.window.showInformationMessage('DynamoDB endpoint/region settings updated successfully.');
+            }
+            catch (error) {
+                vscode.window.showErrorMessage(`Failed to apply DynamoDB settings: ${error}`);
+            }
         }
     }));
     // Register commands for buttons and context menus.
@@ -77,15 +83,19 @@ function activate(context) {
         if (!tableName) {
             return;
         }
-        const keyName = await vscode.window.showInputBox({ prompt: 'Enter partition key name (e.g., id)' });
-        if (!keyName) {
+        const partitionKey = await vscode.window.showInputBox({ prompt: 'Enter partition key name (e.g., id)' });
+        if (!partitionKey) {
             return;
         }
+        const sortKey = await vscode.window.showInputBox({ prompt: 'Enter sort key name (optional, press Escape/Cancel to skip)' });
+        const keySchema = [{ AttributeName: partitionKey.trim(), KeyType: 'HASH' }];
+        if (sortKey && sortKey.trim() !== '') {
+            keySchema.push({ AttributeName: sortKey.trim(), KeyType: 'RANGE' });
+        }
         try {
-            // A very simple key schema for demonstration. You can expand on this.
-            await dynamoDbService.createTable(tableName, [{ AttributeName: keyName, KeyType: 'HASH' }]);
+            await dynamoDbService.createTable(tableName, keySchema);
             // Add to primary key cache
-            primaryKeyCache.set(tableName, keyName);
+            primaryKeyCache.set(tableName, { partitionKey: partitionKey.trim(), sortKey: sortKey && sortKey.trim() ? sortKey.trim() : undefined });
             vscode.window.showInformationMessage(`Table '${tableName}' created successfully!`);
             dynamoDbTreeProvider.refresh();
         }
@@ -169,8 +179,11 @@ function activate(context) {
                 formContent.delete(tableItem.tableName);
             }, null, context.subscriptions);
         }
-        // Get the saved content for this table, or an empty string if none exists.
-        const currentContent = formContent.get(tableItem.tableName) || '';
+        // Get the saved content for this table, or default value with required keys if empty.
+        let currentContent = formContent.get(tableItem.tableName) || '';
+        if (!currentContent.trim()) {
+            currentContent = getDefaultItemContent(tableItem.tableName);
+        }
         panel.webview.html = getAddItemWebviewContent(tableItem.tableName, currentContent);
         // Add an event listener to handle state changes (e.g., when the panel becomes active)
         panel.onDidChangeViewState(e => {
@@ -195,7 +208,9 @@ function activate(context) {
                         dynamoDbTreeProvider.refresh();
                     }
                     catch (error) {
-                        vscode.window.showErrorMessage(`Failed to add item: ${error}`);
+                        const errorMsg = error instanceof Error ? error.message : String(error);
+                        vscode.window.showErrorMessage(`Failed to add item: ${errorMsg}`);
+                        panel?.webview.postMessage({ command: 'addItemFailed', message: errorMsg });
                     }
                     break;
                 case 'updateContent':
@@ -206,6 +221,21 @@ function activate(context) {
         }, undefined, context.subscriptions);
     }));
 }
+function getDefaultItemContent(tableName) {
+    const schema = primaryKeyCache.get(tableName);
+    const template = {};
+    if (schema?.partitionKey) {
+        template[schema.partitionKey] = '';
+    }
+    if (schema?.sortKey) {
+        template[schema.sortKey] = '';
+    }
+    // Fallback required field if no schema available.
+    if (!schema?.partitionKey) {
+        template.id = '';
+    }
+    return JSON.stringify(template, null, 2);
+}
 function getWebviewContent(tableName, items) {
     let tableRows = '';
     let tableHeaders = '';
@@ -215,25 +245,49 @@ function getWebviewContent(tableName, items) {
             Object.keys(item).forEach(k => keys.add(k));
             return keys;
         }, new Set()));
-        const primaryKeyName = primaryKeyCache.get(tableName) || allKeys[0];
+        const schema = primaryKeyCache.get(tableName);
+        const partitionKey = schema?.partitionKey;
+        const sortKey = schema?.sortKey;
+        let orderedKeys;
+        if (partitionKey) {
+            const otherKeys = allKeys
+                .filter(k => k !== partitionKey && k !== sortKey)
+                .sort((a, b) => a.localeCompare(b));
+            orderedKeys = [partitionKey];
+            if (sortKey) {
+                orderedKeys.push(sortKey);
+            }
+            orderedKeys = orderedKeys.concat(otherKeys);
+        }
+        else {
+            orderedKeys = [...allKeys].sort((a, b) => a.localeCompare(b));
+        }
         tableHeaders = `
             <thead>
                 <tr>
-                    ${allKeys.map(key => `<th>${key}</th>`).join('')}
+                    ${orderedKeys.map(key => `<th>${key}</th>`).join('')}
                     <th>Actions</th>
                 </tr>
             </thead>
         `;
         tableRows = items.map(item => {
-            const primaryKeyValue = item[primaryKeyName];
-            // Properly escape the primary key value for use in the onclick attribute
-            const escapedKeyValue = typeof primaryKeyValue === 'string' ? primaryKeyValue.replace(/'/g, "\\'") : primaryKeyValue;
-            const rowJson = JSON.stringify(item).replace(/'/g, "&#39;"); // Escape single quotes for HTML attribute
+            const itemKey = {};
+            if (partitionKey && item[partitionKey] !== undefined) {
+                itemKey[partitionKey] = item[partitionKey];
+            }
+            if (sortKey && item[sortKey] !== undefined) {
+                itemKey[sortKey] = item[sortKey];
+            }
+            if (!partitionKey) {
+                itemKey[orderedKeys[0]] = item[orderedKeys[0]];
+            }
+            const rowJson = JSON.stringify(item).replace(/'/g, "&#39;");
+            const rowKeyJson = JSON.stringify(itemKey).replace(/'/g, "&#39;");
             return `
                 <tr>
-                    ${allKeys.map(key => `<td>${item[key] !== undefined ? JSON.stringify(item[key]) : ''}</td>`).join('')}
+                    ${orderedKeys.map(key => `<td>${item[key] !== undefined ? JSON.stringify(item[key]) : ''}</td>`).join('')}
                     <td>
-                        <button onclick="deleteItem('${tableName}', '${primaryKeyName}', '${escapedKeyValue}')">Delete</button>
+                        <button class="delete-item" data-key='${rowKeyJson}'>Delete</button>
                         <button class="copy-json-btn" data-rowjson='${rowJson}'>Copy JSON</button>
                     </td>
                 </tr>
@@ -273,14 +327,26 @@ function getWebviewContent(tableName, items) {
             <script>
                 const vscode = acquireVsCodeApi();
 
-                function deleteItem(tableName, primaryKeyName, primaryKeyValue) {
-                    const itemKey = { [primaryKeyName]: primaryKeyValue };
+                function deleteItem(tableName, itemKey) {
                     vscode.postMessage({
                         command: 'deleteItem',
                         tableName: tableName,
                         itemKey: itemKey
                     });
                 }
+
+                document.querySelectorAll('.delete-item').forEach(btn => {
+                    btn.addEventListener('click', function() {
+                        const tableName = '${tableName}';
+                        const itemKeyJson = this.getAttribute('data-key').replace(/&#39;/g, "'");
+                        try {
+                            const itemKey = JSON.parse(itemKeyJson);
+                            deleteItem(tableName, itemKey);
+                        } catch (e) {
+                            console.error('Failed to parse item key for deletion', e);
+                        }
+                    });
+                });
 
                 document.querySelectorAll('.copy-json-btn').forEach(btn => {
                     btn.addEventListener('click', function() {
@@ -325,7 +391,10 @@ function getAddItemWebviewContent(tableName, initialContent = '') {
             <h1>Add Item to ${tableName}</h1>
             <p>Enter the item as a JSON object below.</p>
             <textarea id="itemJson" placeholder='e.g., { "id": "123", "name": "example" }'>${initialContent}</textarea>
+            <br />
             <button onclick="saveItem()">Save Item</button>
+            <button style="margin-left: 10px;" onclick="formatJson()">Format JSON</button>
+            <div id="error-message" style="color: red; margin-top: 10px; display: none;"></div>
             <script>
                 const vscode = acquireVsCodeApi();
 
@@ -349,10 +418,41 @@ function getAddItemWebviewContent(tableName, initialContent = '') {
                     if (message.command === 'loadContent') {
                         document.getElementById('itemJson').value = message.content;
                     }
+                    if (message.command === 'addItemFailed') {
+                        const errorDiv = document.getElementById('error-message');
+                        if (errorDiv) {
+                            errorDiv.textContent = message.message;
+                            errorDiv.style.display = 'block';
+                        }
+                    }
                 });
+
+                function formatJson() {
+                    const itemJson = document.getElementById('itemJson').value;
+                    const errorDiv = document.getElementById('error-message');
+                    try {
+                        const parsed = JSON.parse(itemJson);
+                        document.getElementById('itemJson').value = JSON.stringify(parsed, null, 2);
+                        if (errorDiv) {
+                            errorDiv.style.display = 'none';
+                            errorDiv.textContent = '';
+                        }
+                    } catch (e) {
+                        if (errorDiv) {
+                            errorDiv.textContent = 'Cannot format invalid JSON.';
+                            errorDiv.style.display = 'block';
+                        }
+                    }
+                }
 
                 function saveItem() {
                     const itemJson = document.getElementById('itemJson').value;
+                    const errorDiv = document.getElementById('error-message');
+                    if (errorDiv) {
+                        errorDiv.style.display = 'none';
+                        errorDiv.textContent = '';
+                    }
+
                     try {
                         JSON.parse(itemJson);
                         vscode.postMessage({
@@ -360,7 +460,10 @@ function getAddItemWebviewContent(tableName, initialContent = '') {
                             itemJson: itemJson
                         });
                     } catch (e) {
-                        alert('Invalid JSON format!');
+                        if (errorDiv) {
+                            errorDiv.textContent = 'Invalid JSON format.';
+                            errorDiv.style.display = 'block';
+                        }
                     }
                 }
             </script>
