@@ -2,3 +2,4 @@
 **.vsix
 **/out/**
 **/dist/**
+**/.devcontainer/docker/**

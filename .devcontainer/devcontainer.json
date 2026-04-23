@@ -6,6 +6,10 @@
         "ghcr.io/devcontainers/features/aws-cli:1": {},
         "ghcr.io/devcontainers/features/docker-outside-of-docker:1": {
 			"moby": false
+		},
+    "ghcr.io/localstack/devcontainer-feature/localstack-cli:latest": {
+			"awslocal": true,
+			"tflocal": true
 		}
 	},
 
