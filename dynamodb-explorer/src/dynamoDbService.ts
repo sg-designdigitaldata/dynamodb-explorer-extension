@@ -1,6 +1,6 @@
 // This service abstracts all the AWS SDK calls to DynamoDB using v3.
 // You'll need to run `npm install @aws-sdk/client-dynamodb @aws-sdk/lib-dynamodb` to get these dependencies.
-import { DynamoDBClient, ListTablesCommand, CreateTableCommand, DeleteTableCommand, CreateTableInput, KeySchemaElement, ScalarAttributeType, DeleteItemCommandInput, DeleteItemCommand } from "@aws-sdk/client-dynamodb";
+import { DynamoDBClient, ListTablesCommand, CreateTableCommand, DeleteTableCommand, CreateTableInput, KeySchemaElement, ScalarAttributeType, DeleteItemCommandInput, DeleteItemCommand, DescribeTableCommand } from "@aws-sdk/client-dynamodb";
 import * as vscode from 'vscode';
 import { DeleteCommand, DeleteCommandInput, DynamoDBDocumentClient, PutCommand, PutCommandInput, ScanCommand, ScanCommandInput, ScanCommandOutput } from "@aws-sdk/lib-dynamodb";
 import { NodeHttpHandler } from '@aws-sdk/node-http-handler';
@@ -49,6 +49,22 @@ export class DynamoDbService {
             return data.TableNames || [];
         } catch (error) {
             console.error('Error listing tables:', error);
+            throw error;
+        }
+    }
+
+    /**
+     * Describes a table to get its structure, including GSIs.
+     * @param tableName The name of the table.
+     * @returns A promise that resolves to the table description.
+     */
+    async describeTable(tableName: string): Promise<any> {
+        try {
+            const command = new DescribeTableCommand({ TableName: tableName });
+            const data = await this.client.send(command);
+            return data.Table;
+        } catch (error) {
+            console.error(`Error describing table '${tableName}':`, error);
             throw error;
         }
     }
@@ -124,20 +140,24 @@ export class DynamoDbService {
     }
 
     /**
-     * Scans a table to get all items.
+     * Scans a table or GSI to get all items.
      * @param tableName The name of the table to scan.
-     * @returns A promise that resolves to the items in the table.
+     * @param indexName Optional name of the GSI to scan.
+     * @returns A promise that resolves to the items in the table or GSI.
      */
-    async scanTable(tableName: string): Promise<any[] | undefined> {
+    async scanTable(tableName: string, indexName?: string): Promise<any[] | undefined> {
         try {
             const params: ScanCommandInput = {
                 TableName: tableName,
             };
+            if (indexName) {
+                params.IndexName = indexName;
+            }
             const command = new ScanCommand(params);
             const data: ScanCommandOutput = await this.docClient.send(command);
             return data.Items;
         } catch (error) {
-            console.error(`Error scanning table '${tableName}':`, error);
+            console.error(`Error scanning table '${tableName}'${indexName ? ` index '${indexName}'` : ''}:`, error);
             throw error;
         }
     }

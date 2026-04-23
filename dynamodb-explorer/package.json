@@ -4,7 +4,7 @@
   "displayName": "DynamoDB Local Explorer",
   "description": "An extension to manage a local DynamoDB instance.",
   "icon": "resources/dynamo.png",
-  "version": "0.0.3",
+  "version": "0.0.4",
   "engines": {
     "vscode": "^1.80.0"
   },
@@ -67,6 +67,10 @@
         "title": "View Contents"
       },
       {
+        "command": "dynamodb-explorer.viewGsiContents",
+        "title": "View Contents"
+      },
+      {
         "command": "dynamodb-explorer.addItem",
         "title": "Add Item"
       }
@@ -87,17 +91,22 @@
       "view/item/context": [
         {
           "command": "dynamodb-explorer.deleteTable",
-          "when": "view == dynamoDbExplorerTables",
+          "when": "view == dynamoDbExplorerTables && viewItem == tableItem",
           "group": "inline"
         },
         {
           "command": "dynamodb-explorer.viewTableContents",
-          "when": "view == dynamoDbExplorerTables",
+          "when": "view == dynamoDbExplorerTables && viewItem == tableItem",
+          "group": "inline"
+        },
+        {
+          "command": "dynamodb-explorer.viewGsiContents",
+          "when": "view == dynamoDbExplorerTables && viewItem == gsiItem",
           "group": "inline"
         },
         {
           "command": "dynamodb-explorer.addItem",
-          "when": "view == dynamoDbExplorerTables",
+          "when": "view == dynamoDbExplorerTables && viewItem == tableItem",
           "group": "inline"
         }
       ]
