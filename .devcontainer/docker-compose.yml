@@ -15,14 +15,14 @@ services:
     # Uncomment to connect as root instead. More info: https://aka.ms/dev-containers-non-root.
     user: root
 
-  # Based on docs at https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/DynamoDBLocal.DownloadingAndRunning.html#docker
-  dynamodb-local:
-    command: "-jar DynamoDBLocal.jar -sharedDb -dbPath ./data"
-    image: "amazon/dynamodb-local:latest"
-    container_name: dynamodb-local
+  localstack: 
+    container_name: localstack
+    image: localstack/localstack:4.12
     ports:
-      - "8000:8000"
+      - 4566:4566           # LocalStack Gateway
+    environment:
+      # LocalStack configuration: https://docs.localstack.cloud/references/configuration/
+      - DEBUG=1
     volumes:
-      - "../dynamodb:/home/dynamodblocal/data"
-    working_dir: /home/dynamodblocal
-    user: root
+      - "./docker/localstack:/var/lib/localstack" 
+      - "/var/run/docker.sock:/var/run/docker.sock"

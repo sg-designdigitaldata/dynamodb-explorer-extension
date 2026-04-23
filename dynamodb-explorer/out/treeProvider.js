@@ -33,7 +33,7 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.DynamoDbTreeProvider = exports.TableItem = void 0;
+exports.DynamoDbTreeProvider = exports.GsiItem = exports.TableItem = void 0;
 // This file manages the TreeView in the sidebar. It's responsible for displaying the list of tables.
 const vscode = __importStar(require("vscode"));
 class TableItem extends vscode.TreeItem {
@@ -49,6 +49,20 @@ class TableItem extends vscode.TreeItem {
     }
 }
 exports.TableItem = TableItem;
+class GsiItem extends vscode.TreeItem {
+    label;
+    tableName;
+    gsiName;
+    constructor(label, tableName, gsiName) {
+        super(label, vscode.TreeItemCollapsibleState.None);
+        this.label = label;
+        this.tableName = tableName;
+        this.gsiName = gsiName;
+        this.contextValue = 'gsiItem';
+        this.tooltip = `View data in GSI: ${gsiName}`;
+    }
+}
+exports.GsiItem = GsiItem;
 class DynamoDbTreeProvider {
     dynamoDbService;
     _onDidChangeTreeData = new vscode.EventEmitter();
@@ -64,12 +78,26 @@ class DynamoDbTreeProvider {
     }
     async getChildren(element) {
         if (element) {
-            // For this simple example, we don't have children for tables.
-            return Promise.resolve([]);
+            if (element instanceof TableItem) {
+                // Return GSIs for this table
+                try {
+                    const tableDescription = await this.dynamoDbService.describeTable(element.tableName);
+                    const gsis = tableDescription.GlobalSecondaryIndexes || [];
+                    return gsis.map((gsi) => new GsiItem(gsi.IndexName, element.tableName, gsi.IndexName));
+                }
+                catch (error) {
+                    vscode.window.showErrorMessage(`Failed to load GSIs for table '${element.tableName}': ${error}`);
+                    return [];
+                }
+            }
+            else {
+                // GsiItem has no children
+                return Promise.resolve([]);
+            }
         }
         try {
             const tableNames = await this.dynamoDbService.listTables();
-            return tableNames.map(tableName => new TableItem(tableName, vscode.TreeItemCollapsibleState.None, tableName));
+            return tableNames.map(tableName => new TableItem(tableName, vscode.TreeItemCollapsibleState.Collapsed, tableName));
         }
         catch (error) {
             vscode.window.showErrorMessage('Failed to connect to DynamoDB or list tables. Is the Docker container running?');

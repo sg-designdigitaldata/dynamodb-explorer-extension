@@ -1,6 +1,6 @@
 // This is the main entry point for your extension.
 import * as vscode from 'vscode';
-import { DynamoDbTreeProvider, TableItem } from './treeProvider';
+import { DynamoDbTreeProvider, TableItem, GsiItem } from './treeProvider';
 import { KeySchemaElement } from '@aws-sdk/client-dynamodb';
 import { DynamoDbService } from './dynamoDbService';
 import { PrimaryKeyCache } from './primaryKeyCache';
@@ -147,6 +147,60 @@ export function activate(context: vscode.ExtensionContext) {
             }
         }),
 
+        // Command to view GSI contents in a new editor panel.
+        vscode.commands.registerCommand('dynamodb-explorer.viewGsiContents', async (gsiItem: GsiItem) =>  {
+            const panel = vscode.window.createWebviewPanel(
+                'gsiContent',
+                `Contents of ${gsiItem.tableName} - ${gsiItem.gsiName}`,
+                vscode.ViewColumn.One,
+                { enableScripts: true } // Enable scripts for the delete button.
+            );
+
+            // Handle messages from the webview.
+            panel.webview.onDidReceiveMessage(async message => {
+                switch (message.command) {
+                    case 'deleteItem':
+                        // The message should contain the tableName and the item's key.
+                        if (message.tableName && message.itemKey) {                            
+                            const confirmation = await vscode.window.showInformationMessage(
+                                `Are you sure you want to delete this item?`,
+                                { modal: true },
+                                'Yes'
+                            );
+
+                            if (confirmation === 'Yes') {
+                                try {
+                                    await dynamoDbService.deleteItem(message.tableName, message.itemKey);
+                                    vscode.window.showInformationMessage(`Item deleted from table '${message.tableName}' successfully.`);
+                                    // Refresh the webview to show the updated GSI.
+                                    const items = await dynamoDbService.scanTable(message.tableName, message.indexName);
+                                    panel.webview.html = getWebviewContent(message.tableName, items, message.indexName);
+                                    dynamoDbTreeProvider.refresh();
+                                } catch (error) {
+                                    vscode.window.showErrorMessage(`Failed to delete item: ${error}`);
+                                }
+                            }             
+                        break;
+                        }        
+                    case 'refreshTable':
+                        try {
+                            const items = await dynamoDbService.scanTable(gsiItem.tableName, gsiItem.gsiName);
+                            panel.webview.html = getWebviewContent(gsiItem.tableName, items, gsiItem.gsiName);
+                        } catch (error) {
+                            panel.webview.html = `<h1>Error</h1><p>Failed to reload GSI contents: ${error}</p>`;
+                        }
+                        break;
+                    }
+                }, undefined, context.subscriptions);
+
+            try {
+                const items = await dynamoDbService.scanTable(gsiItem.tableName, gsiItem.gsiName);
+                panel.webview.html = getWebviewContent(gsiItem.tableName, items, gsiItem.gsiName);
+            } catch (error) {
+                panel.webview.html = `<h1>Error</h1><p>Failed to load GSI contents: ${error}</p>`;
+            }
+        }),
+
         // Command to add an item to a table.
         vscode.commands.registerCommand('dynamodb-explorer.addItem', async (tableItem: TableItem) => {
             let panel = addItemPanels.get(tableItem.tableName);
@@ -234,7 +288,7 @@ function getDefaultItemContent(tableName: string): string {
     return JSON.stringify(template, null, 2);
 }
 
-function getWebviewContent(tableName: string, items: any[] | undefined): string {
+function getWebviewContent(tableName: string, items: any[] | undefined, indexName?: string): string {
     let tableRows = '';
     let tableHeaders = '';
 
@@ -309,7 +363,7 @@ function getWebviewContent(tableName: string, items: any[] | undefined): string 
         <head>
             <meta charset="UTF-8">
             <meta name="viewport" content="width=device-width, initial-scale=1.0">
-            <title>DynamoDB Table: ${tableName}</title>
+            <title>DynamoDB Table: ${tableName}${indexName ? ` - ${indexName}` : ''}</title>
             <style>
                 body { font-family: sans-serif; padding: 20px; }
                 table { width: 100%; border-collapse: collapse; }
@@ -322,7 +376,7 @@ function getWebviewContent(tableName: string, items: any[] | undefined): string 
             </style>
         </head>
         <body>
-            <h1>Table: ${tableName}</h1>
+            <h1>Table: ${tableName}${indexName ? ` - GSI: ${indexName}` : ''}</h1>
             <button id="refresh-btn">Refresh</button>
             <table>
                 ${tableHeaders}
@@ -337,7 +391,8 @@ function getWebviewContent(tableName: string, items: any[] | undefined): string 
                     vscode.postMessage({
                         command: 'deleteItem',
                         tableName: tableName,
-                        itemKey: itemKey
+                        itemKey: itemKey,
+                        indexName: '${indexName || ''}'
                     });
                 }
 

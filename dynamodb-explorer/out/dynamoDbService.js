@@ -83,6 +83,22 @@ class DynamoDbService {
         }
     }
     /**
+     * Describes a table to get its structure, including GSIs.
+     * @param tableName The name of the table.
+     * @returns A promise that resolves to the table description.
+     */
+    async describeTable(tableName) {
+        try {
+            const command = new client_dynamodb_1.DescribeTableCommand({ TableName: tableName });
+            const data = await this.client.send(command);
+            return data.Table;
+        }
+        catch (error) {
+            console.error(`Error describing table '${tableName}':`, error);
+            throw error;
+        }
+    }
+    /**
      * Creates a new table. This is a very basic example.
      * @param tableName The name of the table to create.
      * @param keySchema The key schema for the table.
@@ -149,21 +165,25 @@ class DynamoDbService {
         }
     }
     /**
-     * Scans a table to get all items.
+     * Scans a table or GSI to get all items.
      * @param tableName The name of the table to scan.
-     * @returns A promise that resolves to the items in the table.
+     * @param indexName Optional name of the GSI to scan.
+     * @returns A promise that resolves to the items in the table or GSI.
      */
-    async scanTable(tableName) {
+    async scanTable(tableName, indexName) {
         try {
             const params = {
                 TableName: tableName,
             };
+            if (indexName) {
+                params.IndexName = indexName;
+            }
             const command = new lib_dynamodb_1.ScanCommand(params);
             const data = await this.docClient.send(command);
             return data.Items;
         }
         catch (error) {
-            console.error(`Error scanning table '${tableName}':`, error);
+            console.error(`Error scanning table '${tableName}'${indexName ? ` index '${indexName}'` : ''}:`, error);
             throw error;
         }
     }
